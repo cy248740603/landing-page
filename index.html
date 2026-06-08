@@ -245,12 +245,15 @@
     }
 
     /*
-     * 小程序码：替换占位区域
-     * 方式 1：直接用图片 URL（草料生成后填入）
-     * 方式 2：通过 URL 参数动态加载
+     * 小程序码：通过草料 API 动态生成
+     * 扫码后打开本页（带 mac 参数），再走唤起/下载逻辑
      */
-    // 如果有小程序码图片地址，可以这样替换：
-    // document.getElementById("qr-code").innerHTML = '<img src="你的小程序码图片URL">';
+    const qrContainer = document.getElementById("qr-code");
+    if (mac) {
+      const currentPageUrl = window.location.origin + window.location.pathname + "?mac=" + encodeURIComponent(mac);
+      const qrApi = "https://api.2dcode.biz/v1/create-qr-code?data=" + encodeURIComponent(currentPageUrl);
+      qrContainer.innerHTML = "<img src='" + qrApi + "' alt='小程序码'>";
+    }
   </script>
 </body>
 </html>
