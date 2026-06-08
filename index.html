@@ -169,7 +169,11 @@
       // App 下载链接
       appUrl: "https://apps.apple.com/cn/app/id6751023871",
       iosUrl: "",
-      androidUrl: ""
+      androidUrl: "",
+
+      // 二维码图片基础地址（GitHub Releases）
+      // 图片命名格式：mac 地址冒号替换为下划线，如 98_DA_B0_10_51_33.png
+      qrBaseUrl: "https://github.com/cy248740603/landing-page/releases/download/v1"
     };
 
     const ua = navigator.userAgent.toLowerCase();
@@ -245,14 +249,25 @@
     }
 
     /*
-     * 小程序码：通过草料 API 动态生成
-     * 扫码后打开本页（带 mac 参数），再走唤起/下载逻辑
+     * 小程序码：从 GitHub Releases 加载
+     * 图片命名：mac 地址冒号替换为下划线，如 98_DA_B0_10_51_33.png
      */
     const qrContainer = document.getElementById("qr-code");
     if (mac) {
-      const currentPageUrl = window.location.origin + window.location.pathname + "?mac=" + encodeURIComponent(mac);
-      const qrApi = "https://api.2dcode.biz/v1/create-qr-code?data=" + encodeURIComponent(currentPageUrl);
-      qrContainer.innerHTML = "<img src='" + qrApi + "' alt='小程序码'>";
+      const qrFile = mac.replace(/:/g, "_") + ".png";
+      const qrUrl = CONFIG.qrBaseUrl + "/" + qrFile;
+      const img = new Image();
+      img.onload = function() {
+        qrContainer.innerHTML = "";
+        qrContainer.appendChild(img);
+      };
+      img.onerror = function() {
+        qrContainer.innerHTML = "<span style='color:#e74c3c'>未找到此设备的二维码</span>";
+      };
+      img.src = qrUrl;
+      img.alt = "小程序码 - " + mac;
+    } else {
+      qrContainer.innerHTML = "<span>请携带 mac 参数访问</span>";
     }
   </script>
 </body>
