@@ -248,8 +248,8 @@
     if (isAndroid && CONFIG.androidUrl) appDownloadUrl = CONFIG.androidUrl;
     appBtn.href = appendMac(appDownloadUrl);
 
-    // 副标题显示 mac（仅对非编码 URL 显示，编码 URL 不显示）
-    if (mac && !d) {
+    // 副标题显示 mac
+    if (mac) {
       document.querySelector(".subtitle").textContent = "设备: " + mac;
     }
 
