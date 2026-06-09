@@ -278,39 +278,45 @@
     // ============ 普通浏览器：唤起 App 逻辑 ============
     function tryOpenAppThenFallback() {
       if (!CONFIG.appScheme) {
-        // 没有 scheme，直接跳 App Store
         window.location.href = appendMac(CONFIG.appUrl);
         return;
       }
 
       const schemeUrl = appendMac(CONFIG.appScheme);
-      let jumped = false;
+      const startTime = Date.now();
+      let appOpened = false;
 
-      // 监听页面隐藏 → 说明 App 已唤起
-      function onHide() {
-        jumped = true;
-        cleanup();
+      // 页面从后台回来 → 检查时间间隔
+      function onShow() {
+        const elapsed = Date.now() - startTime;
+        // 小于 3 秒回来 = App 被唤起了（浏览器跳 scheme 后又回来）
+        if (elapsed < 3000) {
+          appOpened = true;
+          cleanup();
+          return; // 不跳 App Store
+        }
       }
       function cleanup() {
-        document.removeEventListener("visibilitychange", onHide);
-        window.removeEventListener("pagehide", onHide);
+        document.removeEventListener("visibilitychange", onShow);
+        window.removeEventListener("pageshow", onShow);
+        window.removeEventListener("focus", onShow);
       }
-      document.addEventListener("visibilitychange", onHide);
-      window.addEventListener("pagehide", onHide);
+      document.addEventListener("visibilitychange", onShow);
+      window.addEventListener("pageshow", onShow);
+      window.addEventListener("focus", onShow);
 
-      // 用 location.href 跳 scheme（比 iframe 更可靠）
       window.location.href = schemeUrl;
 
-      // 2 秒后没跳走 → 说明没装 App，跳 App Store
+      // 2.5 秒后还在页面 → 没装 App
       setTimeout(() => {
         cleanup();
-        if (!jumped) {
+        if (!appOpened) {
           let fallbackUrl = CONFIG.appUrl;
           if (isIOS && CONFIG.iosUrl) fallbackUrl = CONFIG.iosUrl;
           if (isAndroid && CONFIG.androidUrl) fallbackUrl = CONFIG.androidUrl;
           window.location.href = appendMac(fallbackUrl);
         }
-      }, 2000);
+      }, 2500);
     }
 
     // 副标题显示 mac
