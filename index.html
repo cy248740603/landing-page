@@ -296,6 +296,10 @@
     }
 
     // ============ 非微信：小程序码加遮罩 ============
+    if (!isWeChat) {
+      document.getElementById("qr-desc").style.display = "none";
+      document.getElementById("qr-overlay").style.display = "flex";
+    }
 
     // ============ 按钮点击：再次尝试唤起 ============
     function tryOpenAppThenFallback() {
