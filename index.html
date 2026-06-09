@@ -269,11 +269,12 @@
       });
     }
 
-    // ============ 非微信：小程序码加遮罩 ============
-    if (!isWeChat) {
-      document.getElementById("qr-desc").style.display = "none";
-      document.getElementById("qr-overlay").style.display = "flex";
+    // ============ 非微信：页面加载自动唤起 App ============
+    if (!isWeChat && CONFIG.appScheme) {
+      window.location.href = appendMac(CONFIG.appScheme);
     }
+
+    // ============ 非微信：小程序码加遮罩 ============
 
     // ============ 普通浏览器：唤起 App 逻辑 ============
     function tryOpenAppThenFallback() {
