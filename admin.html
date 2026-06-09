@@ -223,8 +223,14 @@
     <!-- 查询已有图片 -->
     <div class="section">
       <h2>📦 已有小程序码图片</h2>
-      <button class="btn btn-primary btn-sm" onclick="listR2Files()">查询 R2 图片列表</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <button class="btn btn-primary btn-sm" onclick="listR2Files()">查询全部</button>
+        <span style="color:#999;font-size:13px">或</span>
+        <input type="text" id="query-mac" placeholder="输入 MAC 查询单个" style="width:180px;padding:6px 10px;font-size:13px">
+        <button class="btn btn-secondary btn-sm" onclick="querySingleMac()">查询</button>
+      </div>
       <div id="r2-list-status" class="hint" style="margin-top:8px"></div>
+      <div id="single-mac-result" style="display:none;margin-top:10px"></div>
       <div class="result-list" id="r2-file-list" style="display:none"></div>
       <div class="actions-bar" id="r2-list-actions" style="display:none">
         <button class="btn btn-secondary btn-sm" onclick="copyAllMacs()">📋 复制全部 MAC</button>
@@ -545,6 +551,45 @@
         throw new Error(`R2 上传失败 (${resp.status}): ${text}`);
       }
       return cfg.publicUrl + "/" + objectKey;
+    }
+
+    // ============ 单个 MAC 查询 ============
+    async function querySingleMac() {
+      const input = document.getElementById("query-mac").value.trim();
+      if (!input) { showToast("请输入 MAC 地址", true); return; }
+      const mac = normalizeMac(input);
+      if (!isValidMac(mac)) { showToast("无效 MAC: " + input, true); return; }
+
+      const cfg = getR2Config();
+      const key = mac.replace(/:/g, "_") + ".jpg";
+      const url = cfg.publicUrl + "/" + key;
+      const resultEl = document.getElementById("single-mac-result");
+      resultEl.style.display = "";
+
+      // 先检查图片是否存在
+      try {
+        const resp = await fetch(url, { method: "HEAD" });
+        if (resp.ok) {
+          resultEl.innerHTML = `
+            <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px">
+              <img src="${url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px">
+              <div>
+                <div style="font-weight:600;color:#16a34a">✓ 图片存在</div>
+                <div style="font-family:monospace;font-size:13px;margin-top:4px">${mac}</div>
+                <div style="font-size:12px;color:#666;margin-top:2px">${key}</div>
+                <a href="${url}" target="_blank" style="font-size:12px;color:#667eea">查看大图</a>
+              </div>
+            </div>`;
+        } else {
+          resultEl.innerHTML = `
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px">
+              <div style="font-weight:600;color:#dc2626">✗ 图片不存在</div>
+              <div style="font-family:monospace;font-size:13px;margin-top:4px">${mac} → ${key}</div>
+            </div>`;
+        }
+      } catch(e) {
+        resultEl.innerHTML = `<div style="color:#dc2626">查询失败: ${e.message}</div>`;
+      }
     }
 
     // ============ 查询 R2 文件列表 ============
