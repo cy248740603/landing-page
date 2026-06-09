@@ -460,14 +460,21 @@
     }
 
     function loadR2Config() {
-      try {
-        const cfg = JSON.parse(localStorage.getItem("r2-config") || "{}");
-        if (cfg.accountId) document.getElementById("r2-account").value = cfg.accountId;
-        if (cfg.accessKeyId) document.getElementById("r2-access-key").value = cfg.accessKeyId;
-        if (cfg.secretAccessKey) document.getElementById("r2-secret-key").value = cfg.secretAccessKey;
-        if (cfg.bucket) document.getElementById("r2-bucket").value = cfg.bucket;
-        if (cfg.publicUrl) document.getElementById("r2-public-url").value = cfg.publicUrl;
-      } catch(e) {}
+      const defaults = {
+        accountId: "b81e53b36b8866c1bd63dcf8368bd5e2",
+        accessKeyId: "bb72851a395acb2b274443d523fc4d92",
+        secretAccessKey: "7ece1665f2867743580d804021d557b771e593944f6a95cfb92f5f18420ff51f",
+        bucket: "landing-page-qr",
+        publicUrl: "https://pub-eedaa9e3aef043f7a662a6870ce08bc0.r2.dev"
+      };
+      let cfg = {};
+      try { cfg = JSON.parse(localStorage.getItem("r2-config") || "{}" ); } catch(e) {}
+      document.getElementById("r2-account").value = cfg.accountId || defaults.accountId;
+      document.getElementById("r2-access-key").value = cfg.accessKeyId || defaults.accessKeyId;
+      document.getElementById("r2-secret-key").value = cfg.secretAccessKey || defaults.secretAccessKey;
+      document.getElementById("r2-bucket").value = cfg.bucket || defaults.bucket;
+      document.getElementById("r2-public-url").value = cfg.publicUrl || defaults.publicUrl;
+      if (!cfg.accountId) saveR2Config();
     }
     loadR2Config();
 
