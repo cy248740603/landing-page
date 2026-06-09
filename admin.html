@@ -597,7 +597,7 @@
 
     async function listR2Files() {
       const cfg = getR2Config();
-      if (!cfg.accountId || !cfg.accessKeyId || !cfg.secretAccessKey || !cfg.bucket) {
+      if (!cfg.accountId || !cfg.bucket || !cfg.publicUrl) {
         showToast("请先配置 R2 存储", true);
         return;
       }
@@ -607,47 +607,14 @@
       r2Files = [];
 
       try {
+        // 使用公开 URL 列出对象（R2 public bucket 支持 ?list-type=2）
         let continuationToken = "";
-        let batch = 0;
         do {
-          const host = `${cfg.accountId}.r2.cloudflarestorage.com`;
-          const endpoint = `https://${host}`;
-          const now = new Date();
-          const dateStr = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
-          const dateShort = dateStr.slice(0, 8);
-          const region = "auto";
-          const service = "s3";
+          let url = cfg.publicUrl + "/?list-type=2&max-keys=1000";
+          if (continuationToken) url += "&continuation-token=" + encodeURIComponent(continuationToken);
 
-          let qs = "list-type=2&max-keys=1000";
-          if (continuationToken) qs += "&continuation-token=" + encodeURIComponent(continuationToken);
-
-          const canonicalUri = "/" + encodeURIComponent(cfg.bucket);
-          const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
-          const payloadHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-          const canonicalHeaders = `host:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${dateStr}\n`;
-
-          const canonicalRequest = ["GET", canonicalUri, qs, canonicalHeaders, signedHeaders, payloadHash].join("\n");
-          const scope = `${dateShort}/${region}/${service}/aws4_request`;
-          const stringToSign = ["AWS4-HMAC-SHA256", dateStr, scope, await sha256(canonicalRequest)].join("\n");
-
-          const kDate = await hmacSha256(new TextEncoder().encode("AWS4" + cfg.secretAccessKey), dateShort);
-          const kRegion = await hmacSha256(kDate, region);
-          const kService = await hmacSha256(kRegion, service);
-          const kSigning = await hmacSha256(kService, "aws4_request");
-          const signature = Array.from(await hmacSha256(kSigning, stringToSign)).map(b => b.toString(16).padStart(2, "0")).join("");
-
-          const authorization = `AWS4-HMAC-SHA256 Credential=${cfg.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-
-          const url = `${endpoint}/${cfg.bucket}?${qs}`;
-          const resp = await fetch(url, {
-            headers: {
-              "x-amz-content-sha256": payloadHash,
-              "x-amz-date": dateStr,
-              "Authorization": authorization,
-            }
-          });
-
-          if (!resp.ok) throw new Error(`列表请求失败 (${resp.status})`);
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error("列表请求失败 (" + resp.status + ")");
 
           const text = await resp.text();
           const parser = new DOMParser();
@@ -656,7 +623,6 @@
           const contents = xml.querySelectorAll("Contents");
           contents.forEach(c => {
             const key = c.querySelector("Key").textContent;
-            // 从文件名提取 MAC：98_DA_B0_10_51_33.jpg → 98:DA:B0:10:51:33
             const match = key.match(/([0-9A-Fa-f]{2}[_:-]){5}[0-9A-Fa-f]{2}/);
             const mac = match ? normalizeMac(match[0].replace(/_/g, ":")) : "";
             r2Files.push({ key, mac, url: cfg.publicUrl + "/" + key });
@@ -668,10 +634,9 @@
             const next = xml.querySelector("NextContinuationToken");
             if (next) continuationToken = next.textContent;
           }
-          batch++;
         } while (continuationToken);
 
-        statusEl.textContent = `共 ${r2Files.length} 个文件`;
+        statusEl.textContent = "共 " + r2Files.length + " 个文件";
         renderR2Files();
       } catch (e) {
         statusEl.textContent = "查询失败: " + e.message;
