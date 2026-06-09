@@ -280,6 +280,12 @@
               <input type="text" id="r2-public-url" placeholder="https://pub-xxx.r2.dev">
             </div>
           </div>
+          <div class="row">
+            <div>
+              <label>Cloudflare API Token</label>
+              <input type="text" id="r2-cf-token" placeholder="cfat_xxx（用于查询文件列表）">
+            </div>
+          </div>
           <button class="btn btn-secondary btn-sm" onclick="saveR2Config()" style="margin-top:8px">保存配置</button>
         </div>
       </div>
@@ -480,6 +486,7 @@
       document.getElementById("r2-secret-key").value = cfg.secretAccessKey || defaults.secretAccessKey;
       document.getElementById("r2-bucket").value = cfg.bucket || defaults.bucket;
       document.getElementById("r2-public-url").value = cfg.publicUrl || defaults.publicUrl;
+      document.getElementById("r2-cf-token").value = cfg.cfToken || "";
       if (!cfg.accountId) saveR2Config();
     }
     loadR2Config();
@@ -607,34 +614,29 @@
       r2Files = [];
 
       try {
-        // 使用公开 URL 列出对象（R2 public bucket 支持 ?list-type=2）
-        let continuationToken = "";
+        const cfToken = document.getElementById("r2-cf-token").value.trim() || "";
+        let cursor = "";
         do {
-          let url = cfg.publicUrl + "/?list-type=2&max-keys=1000";
-          if (continuationToken) url += "&continuation-token=" + encodeURIComponent(continuationToken);
+          let url = "https://api.cloudflare.com/client/v4/accounts/" + cfg.accountId + "/r2/buckets/" + cfg.bucket + "/objects?per_page=1000";
+          if (cursor) url += "&cursor=" + encodeURIComponent(cursor);
 
-          const resp = await fetch(url);
-          if (!resp.ok) throw new Error("列表请求失败 (" + resp.status + ")");
+          const resp = await fetch(url, {
+            headers: { "Authorization": "Bearer " + cfToken }
+          });
+          if (!resp.ok) throw new Error("请求失败 (" + resp.status + ")");
 
-          const text = await resp.text();
-          const parser = new DOMParser();
-          const xml = parser.parseFromString(text, "text/xml");
+          const data = await resp.json();
+          if (!data.success) throw new Error(data.errors[0]?.message || "查询失败");
 
-          const contents = xml.querySelectorAll("Contents");
-          contents.forEach(c => {
-            const key = c.querySelector("Key").textContent;
+          (data.result || []).forEach(obj => {
+            const key = obj.key;
             const match = key.match(/([0-9A-Fa-f]{2}[_:-]){5}[0-9A-Fa-f]{2}/);
             const mac = match ? normalizeMac(match[0].replace(/_/g, ":")) : "";
             r2Files.push({ key, mac, url: cfg.publicUrl + "/" + key });
           });
 
-          const isTruncated = xml.querySelector("IsTruncated");
-          continuationToken = "";
-          if (isTruncated && isTruncated.textContent === "true") {
-            const next = xml.querySelector("NextContinuationToken");
-            if (next) continuationToken = next.textContent;
-          }
-        } while (continuationToken);
+          cursor = data.result?.truncated ? (data.result?.cursor || "") : "";
+        } while (cursor);
 
         statusEl.textContent = "共 " + r2Files.length + " 个文件";
         renderR2Files();
