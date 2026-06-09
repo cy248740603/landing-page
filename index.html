@@ -270,13 +270,34 @@
     }
 
     // ============ 非微信：页面加载自动唤起 App ============
+    let appOpened = false;
+
     if (!isWeChat && CONFIG.appScheme) {
-      window.location.href = appendMac(CONFIG.appScheme);
+      var iframe = document.createElement("iframe");
+      iframe.style.cssText = "width:0;height:0;border:0;display:none";
+      iframe.src = appendMac(CONFIG.appScheme);
+      document.body.appendChild(iframe);
+
+      // 轮询检测页面是否隐藏（App 打开后浏览器会切到后台）
+      var checkCount = 0;
+      var checkTimer = setInterval(function() {
+        checkCount++;
+        if (document.hidden || document.webkitHidden) {
+          appOpened = true;
+          clearInterval(checkTimer);
+        }
+        if (checkCount > 25) {
+          clearInterval(checkTimer);
+          if (!appOpened && iframe.parentNode) {
+            iframe.parentNode.removeChild(iframe);
+          }
+        }
+      }, 100);
     }
 
     // ============ 非微信：小程序码加遮罩 ============
 
-    // ============ 普通浏览器：唤起 App 逻辑 ============
+    // ============ 按钮点击：再次尝试唤起 ============
     function tryOpenAppThenFallback() {
       if (!CONFIG.appScheme) {
         window.location.href = appendMac(CONFIG.appUrl);
@@ -284,11 +305,10 @@
       }
 
       const schemeUrl = appendMac(CONFIG.appScheme);
-      let appOpened = false;
+      let clicked = false;
 
-      // 页面隐藏 = App 已打开
       function onHide() {
-        appOpened = true;
+        clicked = true;
         cleanup();
       }
       function cleanup() {
@@ -300,10 +320,9 @@
 
       window.location.href = schemeUrl;
 
-      // 超时后：不自动跳，显示手动下载按钮
       setTimeout(() => {
         cleanup();
-        if (!appOpened) {
+        if (!clicked) {
           let fallbackUrl = CONFIG.appUrl;
           if (isIOS && CONFIG.iosUrl) fallbackUrl = CONFIG.iosUrl;
           if (isAndroid && CONFIG.androidUrl) fallbackUrl = CONFIG.androidUrl;
