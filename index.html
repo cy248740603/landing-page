@@ -18,7 +18,6 @@
       padding: 20px;
     }
 
-    /* 尝试唤起 App 时显示过渡提示 */
     body.trying-app .card { display: none; }
     body.trying-app::after {
       content: "正在打开应用...";
@@ -141,7 +140,6 @@
     <div class="title">恒捷蓝牙遥控</div>
     <div class="subtitle">选择你想要的方式打开</div>
 
-    <!-- 下载 App 按钮 -->
     <a href="#" class="btn btn-app">
       <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
         <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.32 2.32-1.55 4.28-3.74 4.25z"/>
@@ -149,7 +147,6 @@
       下载 App
     </a>
 
-    <!-- 小程序码区域 -->
     <div class="qr-section">
       <div class="qr-title">微信扫码打开小程序</div>
       <div class="qr-desc">用微信扫一扫，直接打开小程序</div>
@@ -163,24 +160,39 @@
 
   <script>
     const CONFIG = {
-      // App 自定义 URL Scheme（已安装时直接唤起）
       appScheme: "cyblerc://pages/index/index",
-
-      // App 下载链接
       appUrl: "https://apps.apple.com/cn/app/id6751023871",
       iosUrl: "",
       androidUrl: "",
-
-      // 二维码图片基础地址（GitHub Releases）
-      // 图片命名格式：mac 地址冒号替换为下划线，如 98_DA_B0_10_51_33.png
       qrBaseUrl: "https://pub-eedaa9e3aef043f7a662a6870ce08bc0.r2.dev"
     };
+
+    // MAC 编解码：反转字符串 + base64url
+    function encodeMac(mac) {
+      const reversed = mac.split("").reverse().join("");
+      return btoa(reversed).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    function decodeMac(encoded) {
+      let s = encoded.replace(/-/g, "+").replace(/_/g, "/");
+      while (s.length % 4) s += "=";
+      return atob(s).split("").reverse().join("");
+    }
 
     const ua = navigator.userAgent.toLowerCase();
     const isIOS = /iphone|ipad|ipod/.test(ua);
     const isAndroid = /android/.test(ua);
     const urlParams = new URLSearchParams(window.location.search);
-    const mac = urlParams.get("mac") || "";
+
+    // 支持 ?d=编码 和 ?mac=明文 两种参数
+    let mac = "";
+    const d = urlParams.get("d");
+    if (d) {
+      try { mac = decodeMac(d); } catch(e) { mac = ""; }
+    }
+    if (!mac) {
+      mac = urlParams.get("mac") || "";
+    }
 
     function appendMac(url) {
       if (!url || !mac) return url;
@@ -188,14 +200,11 @@
       return url + sep + "mac=" + encodeURIComponent(mac);
     }
 
-    /*
-     * 尝试自动唤起 App
-     */
+    // 尝试唤起 App
     let appOpened = false;
 
     function tryOpenApp() {
       if (!CONFIG.appScheme) return;
-
       document.body.classList.add("trying-app");
 
       const iframe = document.createElement("iframe");
@@ -209,13 +218,11 @@
           cleanup();
         }
       }
-
       function cleanup() {
         document.removeEventListener("visibilitychange", onVisibilityChange);
         window.removeEventListener("pagehide", onPageHide);
         if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
       }
-
       function onPageHide() {
         appOpened = true;
         cleanup();
@@ -234,24 +241,19 @@
 
     tryOpenApp();
 
-    /*
-     * 设置 App 下载链接
-     */
+    // App 下载链接
     const appBtn = document.querySelector(".btn-app");
     let appDownloadUrl = CONFIG.appUrl;
     if (isIOS && CONFIG.iosUrl) appDownloadUrl = CONFIG.iosUrl;
     if (isAndroid && CONFIG.androidUrl) appDownloadUrl = CONFIG.androidUrl;
     appBtn.href = appendMac(appDownloadUrl);
 
-    // 副标题显示 mac
-    if (mac) {
+    // 副标题显示 mac（仅对非编码 URL 显示，编码 URL 不显示）
+    if (mac && !d) {
       document.querySelector(".subtitle").textContent = "设备: " + mac;
     }
 
-    /*
-     * 小程序码：从 GitHub Releases 加载
-     * 图片命名：mac 地址冒号替换为下划线，如 98_DA_B0_10_51_33.png
-     */
+    // 小程序码
     const qrContainer = document.getElementById("qr-code");
     if (mac) {
       const qrFile = mac.replace(/:/g, "_") + ".jpg";
@@ -265,9 +267,9 @@
         qrContainer.innerHTML = "<span style='color:#e74c3c'>未找到此设备的二维码</span>";
       };
       img.src = qrUrl;
-      img.alt = "小程序码 - " + mac;
+      img.alt = "小程序码";
     } else {
-      qrContainer.innerHTML = "<span>请携带 mac 参数访问</span>";
+      qrContainer.innerHTML = "<span>请携带参数访问</span>";
     }
   </script>
 </body>
